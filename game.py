@@ -1,5 +1,6 @@
 import tkinter as tk 
 import tkinter.messagebox
+from tkinter import filedialog
 from PIL import Image, ImageTk
 
 GAME_LEVELS = {
@@ -369,9 +370,7 @@ class Item(Entity):
 
 class Key(Item):
     """ """
-
     _id = KEY
-
     def on_hit(self, game):
         """ """
         player = game.get_player()
@@ -426,6 +425,9 @@ class Player(Entity):
 
     def reset_move_count(self):
         self._move_count = self._max_move
+    
+    def set_move_count(self, move_count):
+        self._move_count = move_count
 
     def set_position(self, position):
         """ """
@@ -455,6 +457,11 @@ class Player(Entity):
         """ """
         return self._inventory
 
+    def has_key(self):
+        for item in self.get_inventory():
+            if item.get_id() == KEY:
+                return True
+        return False
 
 class GameLogic:
     """ """
@@ -492,6 +499,29 @@ class GameLogic:
             key_position: Key(),
             door_position: Door(),
         }
+
+        for wall in wall_positions:
+            information[wall] = Wall()
+
+        for move_increase in move_increase_positions:
+            information[move_increase] = MoveIncrease()
+
+        return information
+    
+    def restore_game_information(self):
+        """ """
+        # there may be no key left
+        key_position = self.get_positions(KEY)
+        door_position = self.get_positions(DOOR)[0]
+        wall_positions = self.get_positions(WALL)
+        move_increase_positions = self.get_positions(MOVE_INCREASE)
+
+        information = {
+            door_position: Door(),
+        }
+
+        for key in key_position:
+            information[key] = Key()
 
         for wall in wall_positions:
             information[wall] = Wall()
@@ -567,6 +597,18 @@ class GameLogic:
     def get_time(self):
         return self._time
 
+    def set_time(self, time):
+        self._time = time
+
+    def load_dongeon(self, dungeon_size, dungeon):
+        self._dungeon_size = dungeon_size
+        dungeon_layout = []
+        for line in dungeon:
+            line = line.strip()
+            dungeon_layout.append(list(line))
+        self._dungeon = dungeon_layout
+        self._game_information = self.restore_game_information()
+        self._win = False
 
 # Controller
 class GameApp:
@@ -653,15 +695,75 @@ class GameApp:
             self.lose()
 
     def save(self):
-        pass
+        filename = filedialog.asksaveasfilename()
+        if filename:
+            fd = open(filename, 'w')
+            file_text = ""
+            # save player
+            x,y = self._game.get_player().get_position()
+            steps = self._game.get_player().moves_remaining()
+            has_key = self._game.get_player().has_key()
+            file_text += str(x) + "\n"
+            file_text += str(y) + "\n"
+            file_text += str(steps) + "\n"
+            file_text += str(has_key) + "\n"
+            # save time
+            time = self._game.get_time()
+            file_text += str(time) + "\n"
+            # save map
+            dungeon_size = self._game.get_dungeon_size()
+            file_text += str(dungeon_size) + "\n"
+            dungeon = ""
+            game_information = self._game.get_game_information()
+            for i in range(dungeon_size):
+                rows = ""
+                for j in range(dungeon_size):
+                    position = (i, j)
+                    entity = game_information.get(position)
+                    if entity is not None:
+                        char = entity.get_id()
+                    else:
+                        char = SPACE
+                    rows += char
+                rows += "\n"
+                dungeon += rows
+            file_text += dungeon
+            fd.write(file_text)
+            fd.close()
 
     def load(self):
-        pass
+        filename = filedialog.askopenfilename()
+        if filename:
+            fd = open(filename, 'r')
+            file_lines = fd.readlines()
+            # get the informations
+            i = 0
+            x = int(file_lines[i][:-1])
+            i += 1
+            y = int(file_lines[i][:-1])
+            i += 1
+            steps = int(file_lines[i][:-1])
+            i += 1
+            has_key = file_lines[i][:-1] == "True"
+            i += 1
+            time = int(file_lines[i][:-1])
+            i += 1
+            dungeon_size = int(file_lines[i][:-1])
+            i += 1
+            dungeon = file_lines[i : i + dungeon_size]
+            # load the information
+            self._game.get_player().set_position((x, y))
+            self._game.get_player().set_move_count(steps)
+            if has_key:
+                self._game.get_player().add_item(Key())
+            self._game.set_time(time)
+            self._game.load_dongeon(dungeon_size, dungeon)
+            self.refresh_all()
+            fd.close()
 
     def reset(self):
         self._game = GameLogic(dungeon_name=self._dungeon_name)
-        self._dungeon_map.draw_grid(self._game.get_game_information(), self._game.get_player().get_position())
-        self._status_bar.update_counter(self._game.get_player().moves_remaining())
+        self.refresh_all()
 
     def new(self):
         ans = tkinter.messagebox.askyesno('Verify restart', 'Would you like to restart?')
@@ -691,6 +793,13 @@ class GameApp:
         self._game.time_increase()
         self._status_bar.update_timer(self._game.get_time())
         self._master.after(1000, self.time_increase)
+
+    def refresh_all(self):
+        self._dungeon_map.draw_grid(self._game.get_game_information(), self._game.get_player().get_position())
+        if self._task == TASK_TWO:
+            self._status_bar.update_counter(self._game.get_player().moves_remaining())
+            self._status_bar.update_timer(self._game.get_time())
+
             
 def main():
     root = tk.Tk()

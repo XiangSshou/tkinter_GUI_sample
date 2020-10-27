@@ -11,7 +11,6 @@ class App(object):
         self._text = tk.Text(self._master)
         self._text.pack(expand=1, fill=tk.BOTH)
         
-
         # create menu bar
         menubar = tk.Menu(self._master)
         self._master.config(menu=menubar) # tell master what its menubar is
@@ -39,6 +38,7 @@ class App(object):
         if self._filename:
             self._master.title(self._filename)
             fd = open(self._filename, 'w')
+            print(type(self._text.get("1.0", tk.END)))
             fd.write(self._text.get("1.0", tk.END))
             fd.close()
             

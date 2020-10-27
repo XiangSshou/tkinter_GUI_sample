@@ -1,4 +1,4 @@
-def find_functions(filename):
+def find_functions1(filename):
     """Writes the name of each function defined in a given file to functions.txt.
 
     Parameters:
@@ -35,7 +35,7 @@ def find_functions(filename):
     # -----------------------------------------------------------------------
 
 
-def find_functions(filename):
+def find_functions2(filename):
     """Returns a list of tuples describing the functions found in 'filename'.
 
     Returns a list of tuples of the line on which a function was found,
@@ -178,16 +178,19 @@ def main():
     # Load the scores from the score file
     # Note that all capitals represents a constant (i.e. the value is not
     # intended to change).
-    SCORES = read_scores('scrabble_scores.txt')
+    # SCORES = read_scores('scrabble_scores.txt')
 
-    import pprint
-    pprint.pprint(SCORES)
+    # import pprint
+    # pprint.pprint(SCORES)
 
-    print(get_score(SCORES, 'quack'))
+    # print(get_score(SCORES, 'quack'))
 
     ############################################################
     #                       Config File                        #
     ############################################################
-    config = read_config('config.txt')
+    config = read_config('examples/config.txt')
     print(get_value(config, 'user.mobile'))
     print(get_value(config, 'notifications.email'))
+
+if __name__ == "__main__":
+    main()
