@@ -40,9 +40,9 @@ LOSE_TEST = "You have lost all your strength and honour."
 LOSE_TEXT = "You have lost all your strength and honour."
 
 # New Constant in Assignment_3
-TASK_ONE = "1"
-TASK_TWO = "2"
-TASK_THREE = "3"
+TASK_ONE = 1
+TASK_TWO = 2
+MASTER = 3
 
 GAME_TITLE = "Key Cave Adventure Game"
 BANNER = "Key Cave Adventure Game"
@@ -84,6 +84,8 @@ TIMER_TEXT_1 = "Time elapsed"
 TIMER_TEXT_2 = "%dm %ds"
 COUNTER_TEXT_1 = "Moves Left"
 COUNTER_TEXT_2 = "%d moves remaining"
+
+MAX_LIVES = 3
 
 # View Classes
 class AbstractGrid(tk.Canvas):
@@ -226,8 +228,8 @@ class StatusBar(tk.Frame):
         self._master = master
         self._app = app
         # open images
-        self._image_timer = ImageTk.PhotoImage(Image.open(IMAGE_CLOCK).resize((100, 100)))
-        self._image_lightning = ImageTk.PhotoImage(Image.open(IMAGE_LIGHTNING).resize((100, 100)))
+        self._image_timer = ImageTk.PhotoImage(Image.open(IMAGE_CLOCK).resize((60, 60)))
+        self._image_lightning = ImageTk.PhotoImage(Image.open(IMAGE_LIGHTNING).resize((60, 60)))
         self._sec = 0
         self._count = 0
         self._timer_text_2 = tk.StringVar()
@@ -245,7 +247,7 @@ class StatusBar(tk.Frame):
 
     def draw_buttons(self):
         # buttons frame
-        self._buttons = tk.Frame(self, width=200)
+        self._buttons = tk.Frame(self, width=120)
         self._buttons.pack_propagate(0)
         self._buttons.pack(side=tk.LEFT, fill=tk.Y)
         self._buttons_inner_up = tk.Frame(self._buttons)
@@ -296,9 +298,42 @@ class StatusBar(tk.Frame):
         self._counter_text_up.pack()
         self._counter_text_down = tk.Label(self._counter_texts, textvariable = self._counter_text_2)
         self._counter_text_down.pack()
+
+# status bar for master
+class StatusBarM(StatusBar):
+    def __init__(self, master, app):
+        super().__init__(master=master, app=app)
+        self._master = master
+        self._app = app
+        # open images
+        self._image_lives = ImageTk.PhotoImage(Image.open(IMAGE_LIVES).resize((60, 60)))
+        self._lives = 0
+        self._lives_text_1 = tk.StringVar()
+        self.update_lives()
+        self.draw_lives()
+
+    def update_lives(self, lives=3):
+        self._lives_text_1.set("Lives remaining: %d"  % (lives))
+
     def draw_lives(self):
         # lives frame 
-        pass
+        self._lives = tk.Frame(self)
+        self._lives.pack(side=tk.LEFT, fill=tk.X, expand=1)
+        self._lives_inner_up = tk.Frame(self._lives)
+        self._lives_inner_up.pack(expand=1)
+        self._lives_inner = tk.Frame(self._lives)
+        self._lives_inner.pack(fill=tk.X)
+        self._lives_inner_down = tk.Frame(self._lives)
+        self._lives_inner_down.pack(expand=1)
+        self._lives_pic = tk.Label(self._lives_inner, image = self._image_lives)
+        self._lives_pic.pack(side=tk.LEFT)
+        self._lives.pack(side=tk.LEFT)
+        self._lives_texts = tk.Frame(self._lives_inner)
+        self._lives_texts.pack(side=tk.LEFT)
+        self._lives_text_up = tk.Label(self._lives_texts, textvariable = self._lives_text_1)
+        self._lives_text_up.pack()
+        self._lives_button = tk.Button(self._lives_texts, text="Use life", command = self._app.use_life)
+        self._lives_button.pack()
 
 def load_game(filename):
     """Create a 2D array of string representing the dungeon to display.
@@ -349,7 +384,6 @@ class Entity:
     def __repr__(self):
         return str(self)
 
-
 class Wall(Entity):
     """ """
 
@@ -360,13 +394,11 @@ class Wall(Entity):
         super().__init__()
         self.set_collide(False)
 
-
 class Item(Entity):
     """ """
     def on_hit(self, game):
         """ """
         raise NotImplementedError
-
 
 class Key(Item):
     """ """
@@ -376,7 +408,6 @@ class Key(Item):
         player = game.get_player()
         player.add_item(self)
         game.get_game_information().pop(player.get_position())
-
 
 class MoveIncrease(Item):
     """ """
@@ -394,7 +425,6 @@ class MoveIncrease(Item):
         player.change_move_count(self._moves)
         game.get_game_information().pop(player.get_position())
 
-
 class Door(Entity):
     """ """
     _id = DOOR
@@ -409,7 +439,6 @@ class Door(Entity):
 
         print("You don't have the key!")
 
-
 class Player(Entity):
     """ """
 
@@ -422,6 +451,7 @@ class Player(Entity):
         self._move_count = move_count
         self._inventory = []
         self._position = None
+        self._lives = MAX_LIVES
 
     def reset_move_count(self):
         self._move_count = self._max_move
@@ -453,9 +483,20 @@ class Player(Entity):
         """
         self._inventory.append(item)
 
+    def pop_item(self, key):
+        for i in range(len(self._inventory)):
+            if(self._inventory[i]._id == key):
+                return self._inventory.pop(i)
+
     def get_inventory(self):
         """ """
         return self._inventory
+    
+    def get_lives(self):
+        return self._lives
+    
+    def set_lives(self, lives):
+        self._lives = lives
 
     def has_key(self):
         for item in self.get_inventory():
@@ -473,6 +514,7 @@ class GameLogic:
         self._game_information = self.init_game_information()
         self._win = False
         self._time = 0
+        self._history = []
 
     def get_positions(self, entity):
         """ """
@@ -573,11 +615,14 @@ class GameLogic:
         
         return not (0 <= new_pos[0] < self._dungeon_size and 0 <= new_pos[1] < self._dungeon_size)
 
-    def new_position(self, direction):
+    def new_position(self, direction, back=False):
         """ """
         x, y = self.get_player().get_position()
         dx, dy = DIRECTIONS[direction]
-        return x + dx, y + dy
+        if not back:
+            return x + dx, y + dy
+        else:
+            return x - dx, y - dy
 
     def check_game_over(self):
         """ """
@@ -610,6 +655,28 @@ class GameLogic:
         self._game_information = self.restore_game_information()
         self._win = False
 
+    def use_life(self):
+        if len(self._history) > 0 and self._player.get_lives() > 0:
+            # information: position, time, move, key, increase
+            pre_position = self._player.get_position()
+            information = self._history.pop()
+            self._player.set_position(information[0])
+            self.set_time(information[1])
+            self._player.set_move_count(information[2])
+            if information[3]:
+                self._game_information[pre_position] = self.get_player().pop_item(KEY)
+            if information[4]:
+                self._game_information[pre_position] = MoveIncrease()
+            self._player.set_lives(self._player.get_lives() - 1)
+        elif self._player.get_lives() < 0:
+            print("You have no life")
+    def save_status(self, information):
+        # save everyting you need to get back to the previous steps
+        self._history.append(information)
+        if len(self._history) > MAX_LIVES:
+            self._history.pop(0)
+        print(self._history)
+
 # Controller
 class GameApp:
     """ """
@@ -630,7 +697,7 @@ class GameApp:
         # init dungeon map
         if self._task == TASK_ONE:
             self._dungeon_map = DungeonMap(self._frame2, self._game.get_dungeon_size())
-        elif self._task == TASK_TWO:
+        elif self._task >= TASK_TWO:
             self._dungeon_map = AdvancedDungeonMap(self._frame2, self._game.get_dungeon_size())
         self._dungeon_map.pack(side = tk.LEFT)
         self._dungeon_map.draw_grid(self._game.get_game_information(), self._game.get_player().get_position())
@@ -645,8 +712,13 @@ class GameApp:
             self._status_bar.pack_propagate(0)
             self._status_bar.pack(fill=tk.X)
             self._status_bar.update_counter(self._game.get_player().moves_remaining())
+        if self._task == MASTER:
+            self._status_bar = StatusBarM(self._master, self)
+            self._status_bar.pack_propagate(0)
+            self._status_bar.pack(fill=tk.X)
+            self._status_bar.update_counter(self._game.get_player().moves_remaining())
         # init menu bar
-        if self._task == TASK_TWO:
+        if self._task >= TASK_TWO:
             self._menubar = tk.Menu(self._master)
             self._master.config(menu=self._menubar) # tell master what its menubar is
             # within the menu bar create the file menu
@@ -671,18 +743,30 @@ class GameApp:
 
     def move(self, direction):
         if direction in DIRECTIONS:
+            information = [self._game.get_player().get_position(),
+                           self._game.get_time(), 
+                           self._game.get_player().moves_remaining()]
             # if player does not collide move them
+            # we should save if the player meet a key or increase
+            K = False
+            I = False
             if not self._game.collision_check(direction):
                 self._game.move_player(direction)
                 entity = self._game.get_entity(self._game.get_player().get_position())
-
                 # process on_hit and check win state
                 if entity is not None:
+                    if entity._id == KEY:
+                        K = True
+                    elif entity._id == MOVE_INCREASE:
+                        I = True
                     entity.on_hit(self._game)
             else:
                 print(INVALID)
+            information.append(K)
+            information.append(I)
+            self._game.save_status(information)
             self._game.get_player().change_move_count(-1)
-            if self._task == TASK_TWO:
+            if self._task >= TASK_TWO:
                 self._status_bar.update_counter(self._game.get_player().moves_remaining())
         else:
             print(INVALID)
@@ -703,10 +787,12 @@ class GameApp:
             x,y = self._game.get_player().get_position()
             steps = self._game.get_player().moves_remaining()
             has_key = self._game.get_player().has_key()
+            lives = self._game.get_player().get_lives()
             file_text += str(x) + "\n"
             file_text += str(y) + "\n"
             file_text += str(steps) + "\n"
             file_text += str(has_key) + "\n"
+            file_text += str(lives) + "\n"
             # save time
             time = self._game.get_time()
             file_text += str(time) + "\n"
@@ -746,6 +832,8 @@ class GameApp:
             i += 1
             has_key = file_lines[i][:-1] == "True"
             i += 1
+            lives = int(file_lines[i][:-1])
+            i += 1
             time = int(file_lines[i][:-1])
             i += 1
             dungeon_size = int(file_lines[i][:-1])
@@ -756,6 +844,7 @@ class GameApp:
             self._game.get_player().set_move_count(steps)
             if has_key:
                 self._game.get_player().add_item(Key())
+            self._game.get_player().set_lives(lives)
             self._game.set_time(time)
             self._game.load_dongeon(dungeon_size, dungeon)
             self.refresh_all()
@@ -796,14 +885,24 @@ class GameApp:
 
     def refresh_all(self):
         self._dungeon_map.draw_grid(self._game.get_game_information(), self._game.get_player().get_position())
-        if self._task == TASK_TWO:
+        if self._task >= TASK_TWO:
             self._status_bar.update_counter(self._game.get_player().moves_remaining())
             self._status_bar.update_timer(self._game.get_time())
+            if self._task == MASTER:
+                self._status_bar.update_lives(self._game.get_player().get_lives())
 
+    # this is the save function we use for "lives" part
+    def save_status(self, information):
+        self._game.save_status(information)
+        self.refresh_all()
+
+    def use_life(self):
+        self._game.use_life()
+        self.refresh_all()
             
 def main():
     root = tk.Tk()
-    GameApp(root, task = TASK_TWO, dungeon_name = "game2.txt")
+    GameApp(root, task = MASTER, dungeon_name = "game2.txt")
     root.mainloop()
 
 
