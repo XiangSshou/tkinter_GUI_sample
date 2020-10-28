@@ -334,7 +334,7 @@ class StatusBarM(StatusBar):
         self._lives_text_up.pack()
         self._lives_button = tk.Button(self._lives_texts, text="Use life", command = self._app.use_life)
         self._lives_button.pack()
-
+        
 def load_game(filename):
     """Create a 2D array of string representing the dungeon to display.
     
@@ -353,7 +353,6 @@ def load_game(filename):
             dungeon_layout.append(list(line))
 
     return dungeon_layout
-
 
 class Entity:
     """ """
@@ -675,7 +674,15 @@ class GameLogic:
         self._history.append(information)
         if len(self._history) > MAX_LIVES:
             self._history.pop(0)
-        print(self._history)
+
+def sec_to_min(sec):
+    m = sec//60
+    s = sec%60
+    res = ""
+    if m>0:
+        res += str(m) + "m "
+    res += str(s) + "s"
+    return res
 
 # Controller
 class GameApp:
@@ -865,7 +872,69 @@ class GameApp:
             self._master.destroy()
     
     def win(self):
-        ans = tkinter.messagebox.askyesno('You Won!', 'You have finished the level with a score of %d \n\nWould you like to play again?' % self._game.get_time())
+        self._score = self._game.get_time()
+        if self._task == MASTER:
+            self._top = tkinter.Toplevel(self._master)
+            self._top.attributes('-topmost', 1)
+            self._top.title("You Win!")
+            label = tk.Label(self._top, text="You won in %dm and %ds! Enter your name:"%(self._score//60, self._score%60))
+            label.pack()
+            self._entry = tk.Entry(self._top)
+            self._entry.pack()
+            button = tk.Button(self._top, text="Enter", command=self.write_score)
+            button.pack()
+            self._top.protocol("WM_DELETE_WINDOW", self.pop_win)
+        else:
+            self.pop_win()
+
+    def write_score(self):
+        try:
+            file_open = open("score.txt", 'r')
+            lines = file_open.readlines()
+            file_open.close()
+        except IOError:
+            lines = []
+        scores = []
+        for line in lines:
+            name = line.split(":")[0]
+            score = int(line.split(":")[1])
+            scores.append([name,score])
+        name = self._entry.get()
+        score = self._score
+        scores.append([name, score])
+        scores.sort(key = lambda e: e[1])
+        if len(scores) > 3:
+            scores = scores[:3]
+        write = ""
+        self._scores = scores
+        for score in scores:
+            write += score[0] + ":" + str(score[1]) + "\n"
+        file_write = open("score.txt", 'w')
+        file_write.write(write[:-1])
+        file_write.close()
+        self._top.destroy()
+        self.pop_leaderboard()
+    
+    def pop_leaderboard(self):
+        self._top1 = tkinter.Toplevel(self._master)
+        self._top1.attributes('-topmost', 1)
+        self._top1.title("Leaderboard!")
+        label = tk.Label(self._top1, text="High Scores", font=("Arial", 20), bg='medium spring green')
+        label.pack(fill = tk.X)
+        for score in self._scores:
+            label = tk.Label(self._top1, text="%s: %s"%(score[0], sec_to_min(score[1])))
+            label.pack()
+        button = tk.Button(self._top1, text="Done", command=self.return_for_pop_leaderboard)
+        button.pack()
+        self._top1.protocol("WM_DELETE_WINDOW", self.pop_win)
+    def return_for_pop_leaderboard(self):
+        self._top1.destroy()
+        self.pop_win()
+
+    def pop_win(self):
+        if self._task == MASTER:
+            self._top.destroy()
+        ans = tkinter.messagebox.askyesno('You Won!', 'You have finished the level with a score of %d \n\nWould you like to play again?' % self._score)
         if ans:
             self.reset()
         else:
