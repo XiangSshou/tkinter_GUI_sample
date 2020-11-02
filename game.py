@@ -1,3 +1,4 @@
+# The code chould have been prettier, but I have no more interest.
 import tkinter as tk 
 import tkinter.messagebox
 from tkinter import filedialog
@@ -9,6 +10,13 @@ GAME_LEVELS = {
     "game2.txt": 12,
     "game3.txt": 19,
 }
+
+TASK_ONE = 1
+TASK_TWO = 2
+MASTER = 3
+
+# if you want to try a previous version of this game please modify this line
+GAME_MODE = MASTER
 
 PLAYER = "O"
 KEY = "K"
@@ -40,10 +48,6 @@ LOSE_TEST = "You have lost all your strength and honour."
 LOSE_TEXT = "You have lost all your strength and honour."
 
 # New Constant in Assignment_3
-TASK_ONE = 1
-TASK_TWO = 2
-MASTER = 3
-
 GAME_TITLE = "Key Cave Adventure Game"
 BANNER = "Key Cave Adventure Game"
 WALL_TEXT = ""
@@ -89,6 +93,7 @@ MAX_LIVES = 3
 
 # View Classes
 class AbstractGrid(tk.Canvas):
+    # this is the subclass of tk.Canvas, the basic features of this class is to find the center of a cell in the frame and mutual confersion between index and pixel
     def __init__(self, master, rows, cols, width, height, **kwargs):
         super().__init__(master=master, width=width, height=height)
         self._master = master
@@ -137,6 +142,7 @@ class DungeonMap(AbstractGrid):
                 if entity is not None:
                     draw = True
                     char = entity.get_id()
+                    # check what should be printed on the canves frame
                     if(char == KEY):
                         color = TRASH_COLOR
                         text = TRASH_TEXT
@@ -244,7 +250,7 @@ class StatusBar(tk.Frame):
         self._timer_text_2.set(TIMER_TEXT_2 % (sec//60, sec%60))
     def update_counter(self, count = 0):
         self._counter_text_2.set(COUNTER_TEXT_2 % (count))
-
+    # this part of code is a disaster
     def draw_buttons(self):
         # buttons frame
         self._buttons = tk.Frame(self, width=120)
